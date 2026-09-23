@@ -1,0 +1,6 @@
+{
+  "name": "Security Workstation",
+  "description": "Kali Linux-style rootless security and penetration-testing workstation with terminal, package manager, and diagnostic suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
