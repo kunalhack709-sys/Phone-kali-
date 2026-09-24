@@ -199,6 +199,27 @@ class ShellExecutor(
             "nuclei" -> {
                 ToolEngines.runNuclei(args, currentDir, linuxEnv).collect { emit(it) }
             }
+            "subfinder" -> {
+                ToolEngines.runSubfinder(args, currentDir).collect { emit(it) }
+            }
+            "amass" -> {
+                ToolEngines.runAmass(args, currentDir).collect { emit(it) }
+            }
+            "httpx" -> {
+                ToolEngines.runHttpx(args, currentDir).collect { emit(it) }
+            }
+            "dnsx" -> {
+                ToolEngines.runDnsx(args, currentDir).collect { emit(it) }
+            }
+            "naabu" -> {
+                ToolEngines.runNaabu(args, currentDir).collect { emit(it) }
+            }
+            "ffuf" -> {
+                ToolEngines.runFfuf(args, currentDir).collect { emit(it) }
+            }
+            "proxy-setup", "burp", "zap" -> {
+                ToolEngines.runProxyHelper(args, currentDir, linuxEnv).collect { emit(it) }
+            }
             "nikto" -> {
                 ToolEngines.runNikto(args, currentDir).collect { emit(it) }
             }
@@ -373,8 +394,9 @@ class ShellExecutor(
             "help", "clear", "cd", "pwd", "ls", "scope", "motd", "whois",
             "dig", "ping", "nmap", "curl", "apktool", "pkg", "apt",
             "hashcheck", "cleanup", "env", "exit", "cat", "mkdir", "rm",
-            "nuclei", "nikto", "gobuster", "sqlmap", "hydra", "john",
-            "jadx", "wget", "python3", "nslookup", "host", "tcpdump", "aircrack-ng"
+            "nuclei", "subfinder", "amass", "httpx", "dnsx", "naabu", "ffuf",
+            "proxy-setup", "burp", "zap", "nikto", "gobuster", "sqlmap", "hydra",
+            "john", "jadx", "wget", "python3", "nslookup", "host", "tcpdump", "aircrack-ng"
         )
         val matches = mutableListOf<String>()
         val trimmed = prefix.trim()
@@ -400,6 +422,13 @@ class ShellExecutor(
     private fun getHelpText(): String {
         return """
         Kali Linux Rootless Security Workstation Commands:
+          subfinder -d <d>  Passive subdomain discovery (crt.sh/DNS deduplication)
+          amass enum -d <d> In-depth passive asset & ASN infrastructure mapping
+          httpx -u <url>    HTTP/HTTPS service probe (status, title, server, latency)
+          dnsx -d <domain>  Fast multi-record DNS resolution (A, AAAA, CNAME, MX, TXT)
+          naabu -host <ip>  Authorized port discovery & TCP service detection
+          ffuf -u <url>     Fast endpoint & directory discovery fuzzer
+          proxy-setup       Burp Suite & OWASP ZAP upstream proxy configuration
           nuclei -u <url>   Fast YAML-based vulnerability scanner
           nmap [-sT] <ip>   TCP connect port scanner
           nikto -h <host>   Web server security & misconfiguration scanner

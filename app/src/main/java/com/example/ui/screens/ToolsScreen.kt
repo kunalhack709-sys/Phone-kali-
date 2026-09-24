@@ -308,18 +308,111 @@ private fun ToolCardItem(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (tool.binary == "nuclei") {
-                    OutlinedButton(
-                        onClick = { onLaunchInTerminal(customArgs) },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
-                        modifier = Modifier.testTag("nuclei_quick_scan_btn")
-                    ) {
-                        Icon(Icons.Default.Bolt, "Quick Scan", modifier = Modifier.size(14.dp), tint = KaliSecondary)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Audit Scan", fontSize = 12.sp)
+                when (tool.binary) {
+                    "nuclei" -> {
+                        OutlinedButton(
+                            onClick = { onLaunchInTerminal(customArgs) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
+                            modifier = Modifier.testTag("nuclei_quick_scan_btn")
+                        ) {
+                            Icon(Icons.Default.Bolt, "Quick Scan", modifier = Modifier.size(14.dp), tint = KaliSecondary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Audit Scan", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
+                    "subfinder" -> {
+                        OutlinedButton(
+                            onClick = { onLaunchInTerminal(customArgs) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
+                            modifier = Modifier.testTag("subfinder_quick_btn")
+                        ) {
+                            Icon(Icons.Default.TravelExplore, "Enum", modifier = Modifier.size(14.dp), tint = KaliSecondary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Passive Enum", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    "httpx" -> {
+                        OutlinedButton(
+                            onClick = { onLaunchInTerminal(customArgs) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
+                            modifier = Modifier.testTag("httpx_quick_btn")
+                        ) {
+                            Icon(Icons.Default.Http, "Probe", modifier = Modifier.size(14.dp), tint = KaliSecondary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Probe HTTP", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    "naabu" -> {
+                        OutlinedButton(
+                            onClick = { onLaunchInTerminal(customArgs) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
+                            modifier = Modifier.testTag("naabu_quick_btn")
+                        ) {
+                            Icon(Icons.Default.Router, "Port Scan", modifier = Modifier.size(14.dp), tint = KaliSecondary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Port Scan", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    "dnsx" -> {
+                        OutlinedButton(
+                            onClick = { onLaunchInTerminal(customArgs) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
+                            modifier = Modifier.testTag("dnsx_quick_btn")
+                        ) {
+                            Icon(Icons.Default.Dns, "Resolve", modifier = Modifier.size(14.dp), tint = KaliSecondary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Resolve DNS", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    "amass" -> {
+                        OutlinedButton(
+                            onClick = { onLaunchInTerminal(customArgs) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
+                            modifier = Modifier.testTag("amass_quick_btn")
+                        ) {
+                            Icon(Icons.Default.Hub, "Map", modifier = Modifier.size(14.dp), tint = KaliSecondary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Map Assets", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    "ffuf" -> {
+                        OutlinedButton(
+                            onClick = { onLaunchInTerminal(customArgs) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
+                            modifier = Modifier.testTag("ffuf_quick_btn")
+                        ) {
+                            Icon(Icons.Default.FindInPage, "Fuzz", modifier = Modifier.size(14.dp), tint = KaliSecondary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Fuzz Endpoints", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    "proxy-setup" -> {
+                        OutlinedButton(
+                            onClick = { onLaunchInTerminal("--status") },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
+                            modifier = Modifier.testTag("proxy_status_btn")
+                        ) {
+                            Icon(Icons.Default.SettingsEthernet, "Proxy", modifier = Modifier.size(14.dp), tint = KaliSecondary)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Proxy Status", fontSize = 12.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                 }
 
                 if (tool.binary == "apktool") {

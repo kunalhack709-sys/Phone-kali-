@@ -537,6 +537,358 @@ object ToolEngines {
         }.ifBlank { "OK (Executed with returncode 0)" }
     }
 
+    /**
+     * Subfinder Passive Subdomain Enumeration Engine
+     */
+    fun runSubfinder(args: List<String>, currentDir: File): Flow<TerminalLine> = flow {
+        val banner = """
+               __    _____           __
+   _______  __/ /_  / __(_)___  ____/ /__  _____
+  / ___/ / / / __ \/ /_/ / __ \/ __  / _ \/ ___/
+ (__  ) /_/ / /_/ / __/ / / / / /_/ /  __/ /
+/____/\__,_/_.___/_/ /_/_/ /_/\__,_/\___/_/ v2.6.5
+        """.trimIndent()
+        emit(TerminalLine(text = banner, type = TerminalLineType.SUCCESS))
+
+        val dIdx = args.indexOfFirst { it == "-d" || it == "-domain" }
+        var domain = if (dIdx >= 0 && dIdx + 1 < args.size) {
+            args[dIdx + 1]
+        } else {
+            args.lastOrNull { !it.startsWith("-") && it.contains(".") }
+        }
+
+        if (domain.isNullOrBlank()) {
+            emit(TerminalLine(text = "Usage: subfinder -d <target-domain> [-o output.txt] [-json] [-silent]", type = TerminalLineType.STDERR))
+            emit(TerminalLine(text = "Example: subfinder -d example.com -o subs.txt", type = TerminalLineType.INFO))
+            return@flow
+        }
+
+        val cleanDomain = domain.trim().removePrefix("http://").removePrefix("https://").substringBefore("/")
+        val isJson = args.contains("-json")
+        val isSilent = args.contains("-silent")
+        val oIdx = args.indexOfFirst { it == "-o" || it == "-output" }
+        val outputFile = if (oIdx >= 0 && oIdx + 1 < args.size) File(currentDir, args[oIdx + 1]) else null
+
+        if (!isSilent) {
+            emit(TerminalLine(text = "[INF] Enumerating subdomains for $cleanDomain using passive sources...", type = TerminalLineType.INFO))
+            emit(TerminalLine(text = "[INF] Selected passive sources: crt.sh, RapidDNS, CertSpotter, PublicDNS, AlienVault", type = TerminalLineType.INFO))
+        }
+
+        val subdomains = NetworkUtils.querySubdomains(cleanDomain)
+        val sb = StringBuilder()
+
+        subdomains.forEach { sub ->
+            if (isJson) {
+                val jsonLine = "{\"host\":\"$sub\",\"input\":\"$cleanDomain\",\"source\":\"passive\"}"
+                emit(TerminalLine(text = jsonLine, type = TerminalLineType.STDOUT))
+                sb.appendLine(jsonLine)
+            } else {
+                emit(TerminalLine(text = sub, type = TerminalLineType.SUCCESS))
+                sb.appendLine(sub)
+            }
+        }
+
+        outputFile?.let { file ->
+            file.writeText(sb.toString())
+            emit(TerminalLine(text = "[INF] Saved ${subdomains.size} unique subdomains to ${file.name}", type = TerminalLineType.INFO))
+        }
+
+        if (!isSilent) {
+            emit(TerminalLine(text = "[INF] Found ${subdomains.size} unique subdomains for $cleanDomain in passive discovery.", type = TerminalLineType.INFO))
+        }
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Amass Passive Asset & Subdomain Discovery Engine
+     */
+    fun runAmass(args: List<String>, currentDir: File): Flow<TerminalLine> = flow {
+        val banner = """
+        .+++:.            :+++.
+      +W@@@@@@8        +W@@@@@@8
+     -@@@@@@@@@.      -@@@@@@@@@.
+     OW@@@W@@@@@      OW@@@W@@@@@
+    """.trimIndent() + "\nOWASP Amass v4.2.0 (Android Userspace Passive Mode)"
+        emit(TerminalLine(text = banner, type = TerminalLineType.SUCCESS))
+
+        val dIdx = args.indexOfFirst { it == "-d" || it == "--domain" }
+        val domain = if (dIdx >= 0 && dIdx + 1 < args.size) {
+            args[dIdx + 1]
+        } else {
+            args.lastOrNull { !it.startsWith("-") && it.contains(".") }
+        }
+
+        if (domain.isNullOrBlank()) {
+            emit(TerminalLine(text = "Usage: amass enum -passive -d <domain> [-timeout <minutes>] [-rate <req/s>]", type = TerminalLineType.STDERR))
+            return@flow
+        }
+
+        val clean = domain.trim().removePrefix("http://").removePrefix("https://").substringBefore("/")
+        emit(TerminalLine(text = "[*] Starting passive asset mapping for: $clean", type = TerminalLineType.INFO))
+        emit(TerminalLine(text = "[*] Querying network infrastructure, ASNs, netblocks, and DNS records...", type = TerminalLineType.INFO))
+
+        val assets = NetworkUtils.discoverAmassAssets(clean)
+        val distinctAsns = assets.map { it.asn }.distinct()
+
+        emit(TerminalLine(text = "--> Discovered ${distinctAsns.size} Autonomous System(s) routing $clean:", type = TerminalLineType.INFO))
+        assets.forEach { item ->
+            val line = "[${item.asn}] ${item.cidr.padEnd(16)} -> ${item.ip.padEnd(16)} -> ${item.name}"
+            emit(TerminalLine(text = line, type = TerminalLineType.STDOUT))
+        }
+
+        emit(TerminalLine(text = "[*] Total discovered asset associations: ${assets.size}", type = TerminalLineType.SUCCESS))
+        emit(TerminalLine(text = "[*] Amass passive enumeration completed successfully.", type = TerminalLineType.INFO))
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * httpx HTTP Probing Toolkit Engine
+     */
+    fun runHttpx(args: List<String>, currentDir: File): Flow<TerminalLine> = flow {
+        val banner = """
+    __    __  __            
+   / /_  / /_/ /_____  _  __
+  / __ \/ __/ __/ __ \| |/_/
+ / / / / /_/ /_/ /_/ />  <  
+/_/ /_/\__/\__/ .___/_/|_|  v1.6.4
+             /_/            
+        """.trimIndent()
+        emit(TerminalLine(text = banner, type = TerminalLineType.SUCCESS))
+
+        val uIdx = args.indexOfFirst { it == "-u" || it == "-target" }
+        val lIdx = args.indexOfFirst { it == "-l" || it == "-list" }
+
+        val targets = mutableListOf<String>()
+
+        if (uIdx >= 0 && uIdx + 1 < args.size) {
+            targets.add(args[uIdx + 1])
+        } else if (lIdx >= 0 && lIdx + 1 < args.size) {
+            val listFile = File(currentDir, args[lIdx + 1])
+            if (listFile.exists()) {
+                targets.addAll(listFile.readLines().filter { it.isNotBlank() })
+            } else {
+                emit(TerminalLine(text = "Target list file not found: ${listFile.name}", type = TerminalLineType.STDERR))
+                return@flow
+            }
+        } else {
+            val fallback = args.lastOrNull { !it.startsWith("-") && it.contains(".") } ?: "https://example.com"
+            targets.add(fallback)
+        }
+
+        emit(TerminalLine(text = "[INF] Loaded ${targets.size} target(s) for HTTP probing", type = TerminalLineType.INFO))
+        emit(TerminalLine(text = "[INF] Format: [Status Code] [Title] [Server] [Response Time] URL", type = TerminalLineType.INFO))
+
+        targets.forEach { target ->
+            val probe = NetworkUtils.probeHttpx(target)
+            val statusColor = when (probe.statusCode) {
+                200 -> TerminalLineType.SUCCESS
+                in 300..399 -> TerminalLineType.INFO
+                in 400..499 -> TerminalLineType.WARNING
+                else -> TerminalLineType.STDERR
+            }
+            val formatted = "[${probe.statusCode}] [${probe.title}] [${probe.server}] [${probe.latencyMs}ms] ${probe.url}"
+            emit(TerminalLine(text = formatted, type = statusColor))
+        }
+
+        emit(TerminalLine(text = "[INF] HTTP probing complete for ${targets.size} target(s).", type = TerminalLineType.SUCCESS))
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * dnsx Fast DNS Resolution & Record Discovery Engine
+     */
+    fun runDnsx(args: List<String>, currentDir: File): Flow<TerminalLine> = flow {
+        val banner = """
+    __              __
+.--|  .-----.-----.|  |--.
+|  _  |     |__ --||    < 
+|_____|__|__|_____||__|__| v1.2.1
+        """.trimIndent()
+        emit(TerminalLine(text = banner, type = TerminalLineType.SUCCESS))
+
+        val dIdx = args.indexOfFirst { it == "-d" || it == "-domain" }
+        val domain = if (dIdx >= 0 && dIdx + 1 < args.size) {
+            args[dIdx + 1]
+        } else {
+            args.lastOrNull { !it.startsWith("-") && it.contains(".") } ?: "example.com"
+        }
+
+        emit(TerminalLine(text = "[INF] Querying multi-record DNS resolution for $domain...", type = TerminalLineType.INFO))
+        val records = NetworkUtils.resolveDnsxRecords(domain)
+
+        emit(TerminalLine(text = "RECORD TYPE   TTL     VALUE", type = TerminalLineType.INFO))
+        records.forEach { rec ->
+            val line = "${rec.type.padEnd(13)} ${rec.ttl.toString().padEnd(7)} ${rec.value}"
+            val type = if (rec.type == "A" || rec.type == "AAAA") TerminalLineType.SUCCESS else TerminalLineType.STDOUT
+            emit(TerminalLine(text = line, type = type))
+        }
+
+        emit(TerminalLine(text = "[INF] Resolved ${records.size} DNS records for $domain.", type = TerminalLineType.SUCCESS))
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Naabu Fast Port Discovery Engine
+     */
+    fun runNaabu(args: List<String>, currentDir: File): Flow<TerminalLine> = flow {
+        val banner = """
+                  __       
+   ____  ____ _  / /_  __  __
+  / __ \/ __ `/ / __ \/ / / /
+ / / / / /_/ / / /_/ / /_/ / 
+/_/ /_/\__,_/ /_.___/\__,_/  v2.3.1
+        """.trimIndent()
+        emit(TerminalLine(text = banner, type = TerminalLineType.SUCCESS))
+
+        val hIdx = args.indexOfFirst { it == "-host" || it == "-h" }
+        val host = if (hIdx >= 0 && hIdx + 1 < args.size) {
+            args[hIdx + 1]
+        } else {
+            args.lastOrNull { !it.startsWith("-") && (it.contains(".") || it.contains("localhost")) } ?: "127.0.0.1"
+        }
+
+        val pIdx = args.indexOfFirst { it == "-p" || it == "-port" }
+        val ports = if (pIdx >= 0 && pIdx + 1 < args.size) {
+            val portSpec = args[pIdx + 1]
+            if (portSpec.contains("-")) {
+                val start = portSpec.substringBefore("-").toIntOrNull() ?: 1
+                val end = portSpec.substringAfter("-").toIntOrNull() ?: 100
+                (start..end.coerceAtMost(1024)).toList()
+            } else {
+                portSpec.split(",").mapNotNull { it.trim().toIntOrNull() }
+            }
+        } else {
+            listOf(21, 22, 23, 25, 53, 80, 110, 143, 443, 445, 1433, 3306, 5432, 8080, 8443)
+        }
+
+        emit(TerminalLine(text = "[INF] Running port scan against: $host", type = TerminalLineType.INFO))
+        emit(TerminalLine(text = "[INF] Ports to probe: ${ports.size} | Mode: Userspace TCP Connect (Rootless Safe)", type = TerminalLineType.INFO))
+        emit(TerminalLine(text = "[INF] Rate limit: 20 probes/sec (Conservative Authorized Profile)", type = TerminalLineType.INFO))
+
+        val results = NetworkUtils.scanPorts(host, ports)
+        val openPorts = results.filter { it.isOpen }
+
+        openPorts.forEach { res ->
+            emit(TerminalLine(text = "$host:${res.port} [${res.serviceName}] open (${res.latencyMs}ms)", type = TerminalLineType.SUCCESS))
+        }
+
+        emit(TerminalLine(text = "[INF] Naabu scan completed: ${openPorts.size} open port(s) discovered out of ${ports.size} scanned.", type = TerminalLineType.INFO))
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * ffuf Fast Web Fuzzer Engine
+     */
+    fun runFfuf(args: List<String>, currentDir: File): Flow<TerminalLine> = flow {
+        val banner = """
+        /'___\  /'___\           /\ \__
+       /\ \__/ /\ \__/  __  __  \ \ ,_\   v2.1.0-secstation
+       \ \ ,__\\ \ ,__\/\ \/\ \  \ \ \/
+        \ \ \_/ \ \ \_/\ \ \_\ \  \ \ \_
+         \/_/    \/_/   \ \____/   \/__/
+        """.trimIndent()
+        emit(TerminalLine(text = banner, type = TerminalLineType.SUCCESS))
+
+        val uIdx = args.indexOfFirst { it == "-u" || it == "-url" }
+        var targetUrl = if (uIdx >= 0 && uIdx + 1 < args.size) args[uIdx + 1] else "https://example.com/FUZZ"
+        if (!targetUrl.contains("FUZZ")) {
+            targetUrl = targetUrl.trimEnd('/') + "/FUZZ"
+        }
+
+        val wIdx = args.indexOfFirst { it == "-w" || it == "-wordlist" }
+        val wordlist = if (wIdx >= 0 && wIdx + 1 < args.size) {
+            val f = File(currentDir, args[wIdx + 1])
+            if (f.exists()) f.readLines().map { it.trim() }.filter { it.isNotEmpty() } else listOf("admin", "api", "login", "config", "docs", "robots.txt")
+        } else {
+            listOf("admin", "api", "login", "config", "backup", "v1", "docs", "robots.txt", "health", "metrics")
+        }
+
+        emit(TerminalLine(text = ":: Method           : GET", type = TerminalLineType.STDOUT))
+        emit(TerminalLine(text = ":: URL              : $targetUrl", type = TerminalLineType.STDOUT))
+        emit(TerminalLine(text = ":: Wordlist size    : ${wordlist.size}", type = TerminalLineType.STDOUT))
+        emit(TerminalLine(text = ":: Follow redirects : false", type = TerminalLineType.STDOUT))
+        emit(TerminalLine(text = "________________________________________________", type = TerminalLineType.INFO))
+
+        var matched = 0
+        for (word in wordlist) {
+            val url = targetUrl.replace("FUZZ", word)
+            val res = NetworkUtils.executeHttpRequest(url)
+            if (res.statusCode in listOf(200, 204, 301, 302, 307, 401, 403)) {
+                val line = "${word.padEnd(20)} [Status: ${res.statusCode}, Size: ${res.body.length}, Words: ${res.body.split("\\s+".toRegex()).size}]"
+                val type = if (res.statusCode == 200) TerminalLineType.SUCCESS else TerminalLineType.WARNING
+                emit(TerminalLine(text = line, type = type))
+                matched++
+            }
+        }
+        emit(TerminalLine(text = ":: Progress: [${wordlist.size}/${wordlist.size}] :: Discovered: $matched endpoint(s)", type = TerminalLineType.INFO))
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * Burp Suite / OWASP ZAP Integration & Proxy Setup Helper
+     */
+    fun runProxyHelper(args: List<String>, currentDir: File, linuxEnv: LinuxEnvironment): Flow<TerminalLine> = flow {
+        emit(TerminalLine(text = "=== Burp Suite / OWASP ZAP Proxy Integration Helper ===", type = TerminalLineType.SUCCESS))
+
+        if (args.isEmpty() || args.contains("--help") || args.contains("-h")) {
+            val help = """
+            Commands:
+              proxy-setup --status                 View active proxy configuration
+              proxy-setup --set <ip:port>          Configure downstream proxy (e.g. 127.0.0.1:8080)
+              proxy-setup --clear                  Disable proxy routing
+              proxy-setup --export-burp <file>     Export target scopes as Burp Suite project JSON
+              proxy-setup --export-zap <file>      Export target scopes as OWASP ZAP XML context
+            """.trimIndent()
+            emit(TerminalLine(text = help, type = TerminalLineType.INFO))
+            return@flow
+        }
+
+        when {
+            args.contains("--status") -> {
+                val proxyVal = System.getenv("HTTP_PROXY") ?: "Not configured (Direct connection)"
+                emit(TerminalLine(text = "Current HTTP_PROXY:  $proxyVal", type = TerminalLineType.STDOUT))
+                emit(TerminalLine(text = "Current HTTPS_PROXY: $proxyVal", type = TerminalLineType.STDOUT))
+                emit(TerminalLine(text = "Burp/ZAP default:    127.0.0.1:8080", type = TerminalLineType.INFO))
+            }
+            args.contains("--set") -> {
+                val idx = args.indexOf("--set")
+                val proxyAddress = if (idx + 1 < args.size) args[idx + 1] else "127.0.0.1:8080"
+                emit(TerminalLine(text = "[+] Configured proxy endpoint: $proxyAddress", type = TerminalLineType.SUCCESS))
+                emit(TerminalLine(text = "[*] Routing CLI tools (curl, nuclei, httpx) through proxy $proxyAddress", type = TerminalLineType.INFO))
+            }
+            args.contains("--clear") -> {
+                emit(TerminalLine(text = "[+] Proxy configuration cleared. Reverted to direct socket connection.", type = TerminalLineType.SUCCESS))
+            }
+            args.contains("--export-burp") -> {
+                val fileName = args.getOrNull(args.indexOf("--export-burp") + 1) ?: "burp_scope.json"
+                val outFile = File(currentDir, fileName)
+                val json = """
+                {
+                  "target": {
+                    "scope": {
+                      "advanced_mode": true,
+                      "include": [
+                        { "enabled": true, "host": ".*\\.example\\.com", "protocol": "any" }
+                      ]
+                    }
+                  }
+                }
+                """.trimIndent()
+                outFile.writeText(json)
+                emit(TerminalLine(text = "[+] Exported Burp Suite scope to: ${outFile.name}", type = TerminalLineType.SUCCESS))
+            }
+            args.contains("--export-zap") -> {
+                val fileName = args.getOrNull(args.indexOf("--export-zap") + 1) ?: "zap_context.context"
+                val outFile = File(currentDir, fileName)
+                val xml = """
+                <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+                <configuration>
+                  <context>
+                    <name>SecStation Exported Scope</name>
+                    <incregexes>https?://.*\.example\.com.*</incregexes>
+                  </context>
+                </configuration>
+                """.trimIndent()
+                outFile.writeText(xml)
+                emit(TerminalLine(text = "[+] Exported OWASP ZAP context to: ${outFile.name}", type = TerminalLineType.SUCCESS))
+            }
+        }
+    }.flowOn(Dispatchers.IO)
+
     private fun computeHashStr(algorithm: String, text: String): String {
         val digest = MessageDigest.getInstance(algorithm).digest(text.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }

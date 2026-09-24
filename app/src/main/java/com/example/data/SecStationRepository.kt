@@ -227,6 +227,13 @@ class SecStationRepository(private val context: Context) {
             PackageItem("tcpdump", "tcpdump", "4.99.4", "Packet analyzer (Requires CAP_NET_RAW / root for raw promiscuous capture)", "Network", 2_100_000, false, CompatibilityStatus.UNSUPPORTED),
             PackageItem("aircrack-ng", "aircrack-ng", "1.7", "Wireless security auditing suite (Requires monitor mode & root)", "Wireless", 7_800_000, false, CompatibilityStatus.UNSUPPORTED),
             PackageItem("john", "john", "1.9.0-jumbo", "John the Ripper password security auditor", "Forensics", 12_000_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("subfinder", "subfinder", "2.6.5", "Fast passive subdomain enumeration tool using crt.sh and passive sources", "Recon", 9_200_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("amass", "amass", "4.2.0", "In-depth passive asset discovery and ASN infrastructure mapping", "Recon", 18_400_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("httpx", "httpx", "1.6.4", "Fast multi-purpose HTTP probe toolkit for headers, titles, status codes", "Web", 8_800_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("dnsx", "dnsx", "1.2.1", "Multi-purpose DNS toolkit for A, AAAA, CNAME, MX, TXT records", "Recon", 6_400_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("naabu", "naabu", "2.3.1", "Fast port discovery and TCP service reachability scanner", "Network", 7_500_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("ffuf", "ffuf", "2.1.0", "Fast web fuzzer for endpoint, path, and directory content discovery", "Web", 8_100_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("proxy-tools", "proxy-tools", "1.0.0", "Burp Suite and OWASP ZAP proxy configuration & scope exporter", "Web", 1_500_000, true, CompatibilityStatus.COMPATIBLE),
             PackageItem("python3", "python3", "3.11.8", "Python programming language userspace interpreter", "Programming", 18_000_000, true, CompatibilityStatus.COMPATIBLE)
         )
     }
@@ -309,6 +316,76 @@ class SecStationRepository(private val context: Context) {
     // Default Tools
     private fun initDefaultTools() {
         _tools.value = listOf(
+            SecurityTool(
+                id = "tool_subfinder",
+                name = "Subfinder Enumerator",
+                binary = "subfinder",
+                category = ToolCategory.RECON,
+                description = "Fast, passive subdomain discovery tool using Certificate Transparency logs, public DNS, and passive intelligence with duplicate removal.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-d example.com",
+                suggestedArgs = listOf("-d example.com", "-d example.com -o subs.txt", "-d example.com -json", "-d google.com -silent")
+            ),
+            SecurityTool(
+                id = "tool_amass",
+                name = "OWASP Amass Mapper",
+                binary = "amass",
+                category = ToolCategory.RECON,
+                description = "In-depth passive asset discovery, ASN infrastructure mapping, network blocks, and DNS domain relationships.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "enum -passive -d example.com",
+                suggestedArgs = listOf("enum -passive -d example.com", "enum -passive -d example.com -timeout 10", "enum -passive -d cloudflare.com")
+            ),
+            SecurityTool(
+                id = "tool_httpx",
+                name = "httpx Prober",
+                binary = "httpx",
+                category = ToolCategory.WEB,
+                description = "Fast multi-purpose HTTP/HTTPS probe toolkit to check host availability, status codes, page titles, server banners, and latency.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-u https://example.com",
+                suggestedArgs = listOf("-u https://example.com", "-u http://127.0.0.1:8080", "-l hosts.txt", "-u https://httpbin.org")
+            ),
+            SecurityTool(
+                id = "tool_dnsx",
+                name = "dnsx Multi-Resolver",
+                binary = "dnsx",
+                category = ToolCategory.RECON,
+                description = "Fast multi-purpose DNS resolution toolkit with multiple record discovery (A, AAAA, CNAME, MX, TXT, NS) and query caching.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-d example.com",
+                suggestedArgs = listOf("-d example.com", "-d cloudflare.com", "-d google.com")
+            ),
+            SecurityTool(
+                id = "tool_naabu",
+                name = "Naabu Port Scanner",
+                binary = "naabu",
+                category = ToolCategory.NETWORK,
+                description = "Fast authorized port discovery and TCP service detection with conservative rate limits for authorized testing.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-host 127.0.0.1 -p 80,443,8080",
+                suggestedArgs = listOf("-host 127.0.0.1 -p 80,443,8080", "-host scanme.nmap.org -p 22,80,443", "-host 192.168.1.1 -p 1-100")
+            ),
+            SecurityTool(
+                id = "tool_ffuf",
+                name = "ffuf Web Fuzzer",
+                binary = "ffuf",
+                category = ToolCategory.WEB,
+                description = "Fast web endpoint and directory content fuzzer supporting custom wordlists, status filters, and rate limiting.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-u https://example.com/FUZZ",
+                suggestedArgs = listOf("-u https://example.com/FUZZ", "-u http://127.0.0.1:8080/FUZZ", "-u https://example.com/FUZZ -w common.txt")
+            ),
+            SecurityTool(
+                id = "tool_proxy_setup",
+                name = "Burp / ZAP Integrator",
+                binary = "proxy-setup",
+                category = ToolCategory.WEB,
+                description = "Configure downstream intercepting proxies (Burp Suite, OWASP ZAP) and export target scopes to Burp JSON / ZAP XML context.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "--status",
+                suggestedArgs = listOf("--status", "--set 127.0.0.1:8080", "--export-burp scope.json", "--export-zap zap.context", "--clear")
+            ),
             SecurityTool(
                 id = "tool_nuclei",
                 name = "Nuclei Scanner",

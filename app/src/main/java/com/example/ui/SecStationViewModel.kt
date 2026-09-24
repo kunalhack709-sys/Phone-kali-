@@ -164,8 +164,9 @@ class SecStationViewModel(application: Application) : AndroidViewModel(applicati
         repository.addSessionHistory(activeId, cmd)
         repository.setSessionRunning(activeId, true)
 
-        val promptText = "kali@android:${formatPathForPrompt(session.cwd)}$ "
-        repository.appendLineToSession(activeId, TerminalLine(text = promptText + cmd, type = TerminalLineType.PROMPT))
+        val pathPrompt = formatPathForPrompt(session.cwd)
+        val promptText = "┌──(kali㉿secstation)-[$pathPrompt]\n└─$ $cmd"
+        repository.appendLineToSession(activeId, TerminalLine(text = promptText, type = TerminalLineType.PROMPT))
 
         if (cmd.equals("clear", ignoreCase = true)) {
             repository.clearSession(activeId)
@@ -278,7 +279,12 @@ class SecStationViewModel(application: Application) : AndroidViewModel(applicati
         executeCommand(fullCmd)
     }
 
-    private fun formatPathForPrompt(dir: File): String {
+    fun clearActiveSession() {
+        val activeId = activeSessionId.value
+        repository.clearSession(activeId)
+    }
+
+    fun formatPathForPrompt(dir: File): String {
         val homePath = linuxEnv.homeDir.absolutePath
         val curPath = dir.absolutePath
         return when {
