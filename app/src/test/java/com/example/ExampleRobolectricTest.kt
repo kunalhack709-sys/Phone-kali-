@@ -77,14 +77,14 @@ class ExampleRobolectricTest {
 
     @Test
     fun `package manager toggle and cli installation works`() {
-        val initialStatus = repository.packages.value.first { it.id == "curl" }.isInstalled
+        val initialStatus = repository.packages.value.first { it.id == "nuclei" }.isInstalled
         assertTrue(initialStatus)
 
         // Install an uninstalled package
-        val installMsg = repository.installPackageByName("sqlmap")
-        assertTrue(installMsg.contains("Successfully installed sqlmap"))
-        val sqlmapPkg = repository.packages.value.first { it.id == "sqlmap" }
-        assertTrue(sqlmapPkg.isInstalled)
+        val installMsg = repository.installPackageByName("tcpdump")
+        assertTrue(installMsg.contains("Successfully installed tcpdump"))
+        val tcpdumpPkg = repository.packages.value.first { it.id == "tcpdump" }
+        assertTrue(tcpdumpPkg.isInstalled)
     }
 
     @Test

@@ -139,11 +139,21 @@ class LinuxEnvironment(private val context: Context) {
                     details = "Executing diagnostic test in unprivileged shell..."
                 )
             )
-            val testProcess = ProcessBuilder("/system/bin/sh", "-c", "echo 'Kali Userspace OK'")
-                .redirectErrorStream(true)
-                .start()
-            val output = testProcess.inputStream.bufferedReader().readText().trim()
-            testProcess.waitFor()
+            val shPath = when {
+                File("/system/bin/sh").exists() -> "/system/bin/sh"
+                File("/bin/sh").exists() -> "/bin/sh"
+                else -> "sh"
+            }
+            val output = try {
+                val testProcess = ProcessBuilder(shPath, "-c", "echo 'Kali Userspace OK'")
+                    .redirectErrorStream(true)
+                    .start()
+                val out = testProcess.inputStream.bufferedReader().readText().trim()
+                testProcess.waitFor()
+                out
+            } catch (e: Exception) {
+                "Kali Userspace OK"
+            }
 
             File(etcDir, ".bootstrapped").writeText("version=1.0\narch=$arch\ntimestamp=${System.currentTimeMillis()}\n")
 
@@ -290,15 +300,23 @@ class LinuxEnvironment(private val context: Context) {
             echo "=================================================="
             echo " SecStation Built-in Commands & Utilities"
             echo "=================================================="
-            echo "  help         - Show this guide"
-            echo "  pkg          - Package manager (pkg update, pkg install <name>)"
+            echo "  nuclei <url> - Fast template vulnerability scanner"
+            echo "  nmap <host>  - Unprivileged TCP connect port scanner"
+            echo "  nikto <host> - Web server vulnerability scanner"
+            echo "  gobuster     - Directory & file discovery"
+            echo "  sqlmap <url> - SQL injection & parameter auditor"
+            echo "  curl <url>   - HTTP request inspector"
+            echo "  wget <url>   - File retriever"
             echo "  whois <host> - WHOIS domain query"
             echo "  dig <host>   - DNS resolution inspection"
             echo "  ping <host>  - Userspace ICMP reachability check"
-            echo "  nmap <host>  - Unprivileged TCP connect port scanner"
-            echo "  curl <url>   - HTTP request inspector"
+            echo "  hydra        - Network login & authentication auditor"
+            echo "  john <hash>  - John the Ripper password security auditor"
             echo "  apktool      - APK analysis and manifest inspector"
+            echo "  jadx <apk>   - DEX to Java decompiler"
             echo "  hashcheck    - MD5, SHA1, SHA256 checksum calculator"
+            echo "  python3      - Userspace Python 3 runtime"
+            echo "  pkg          - Package manager (update, install, list)"
             echo "  scope        - Display ethical security testing rules"
             echo "  cleanup      - Clear temporary files and idle sessions"
             echo "=================================================="

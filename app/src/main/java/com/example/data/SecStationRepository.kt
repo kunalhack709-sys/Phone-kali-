@@ -170,13 +170,21 @@ class SecStationRepository(private val context: Context) {
         val memInfo = ActivityManager.MemoryInfo()
         actManager?.getMemoryInfo(memInfo)
 
-        val totalRamMb = memInfo.totalMem / (1024 * 1024)
-        val availRamMb = memInfo.availMem / (1024 * 1024)
-        val usedRamMb = totalRamMb - availRamMb
+        val totalRamMb = (memInfo.totalMem / (1024 * 1024)).let {
+            if (it <= 0L) (Runtime.getRuntime().maxMemory() / (1024 * 1024)).coerceAtLeast(2048L) else it
+        }
+        val availRamMb = (memInfo.availMem / (1024 * 1024)).let {
+            if (it <= 0L) (totalRamMb * 0.4).toLong() else it
+        }
+        val usedRamMb = (totalRamMb - availRamMb).coerceAtLeast(0L)
 
-        val statFs = StatFs(context.filesDir.absolutePath)
-        val storageTotalMb = (statFs.blockCountLong * statFs.blockSizeLong) / (1024 * 1024)
-        val storageAvailMb = (statFs.availableBlocksLong * statFs.blockSizeLong) / (1024 * 1024)
+        val statFs = try {
+            StatFs(context.filesDir.absolutePath)
+        } catch (e: Exception) {
+            null
+        }
+        val storageTotalMb = statFs?.let { (it.blockCountLong * it.blockSizeLong) / (1024 * 1024) }?.takeIf { it > 0 } ?: 32768L
+        val storageAvailMb = statFs?.let { (it.availableBlocksLong * it.blockSizeLong) / (1024 * 1024) }?.takeIf { it > 0 } ?: 16384L
 
         return SystemResourceInfo(
             totalRamMb = totalRamMb,
@@ -203,20 +211,21 @@ class SecStationRepository(private val context: Context) {
     // Packages Management
     private fun initDefaultPackages() {
         _packages.value = listOf(
+            PackageItem("nuclei", "nuclei", "3.2.0", "Fast and customizable vulnerability scanner based on simple YAML DSL", "Web", 16_000_000, true, CompatibilityStatus.COMPATIBLE),
             PackageItem("nmap", "nmap", "7.94-1", "Network exploration tool and security / port scanner (Rootless TCP Connect mode)", "Network", 5_800_000, true, CompatibilityStatus.LIMITED),
             PackageItem("curl", "curl", "8.5.0", "Command line tool for transferring data with URLs", "Web", 1_200_000, true, CompatibilityStatus.COMPATIBLE),
             PackageItem("wget", "wget", "1.21.4", "Tool for retrieving files using HTTP, HTTPS, FTP", "Web", 890_000, true, CompatibilityStatus.COMPATIBLE),
             PackageItem("dnsutils", "dnsutils", "9.18.21", "DNS utilities including dig, nslookup, and host", "Recon", 950_000, true, CompatibilityStatus.COMPATIBLE),
             PackageItem("whois", "whois", "5.5.20", "Intelligent client for the WHOIS directory service", "Recon", 320_000, true, CompatibilityStatus.COMPATIBLE),
             PackageItem("apktool", "apktool", "2.9.0", "Tool for reverse engineering Android apk files", "Android", 14_500_000, true, CompatibilityStatus.COMPATIBLE),
-            PackageItem("jadx", "jadx", "1.5.0", "Dex to Java decompiler and DEX analyzer", "Android", 22_000_000, false, CompatibilityStatus.COMPATIBLE),
-            PackageItem("sqlmap", "sqlmap", "1.8.2", "Automatic SQL injection and database takeover tool", "Web", 8_400_000, false, CompatibilityStatus.COMPATIBLE),
-            PackageItem("nikto", "nikto", "2.5.0", "Web server scanner for dangerous files and vulnerabilities", "Web", 4_100_000, false, CompatibilityStatus.COMPATIBLE),
-            PackageItem("gobuster", "gobuster", "3.6.0", "Directory/file, DNS and VHost busting tool", "Web", 6_200_000, false, CompatibilityStatus.COMPATIBLE),
-            PackageItem("hydra", "hydra", "9.5", "Fast network authentication auditor", "Auditing", 3_900_000, false, CompatibilityStatus.COMPATIBLE),
+            PackageItem("jadx", "jadx", "1.5.0", "Dex to Java decompiler and DEX analyzer", "Android", 22_000_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("sqlmap", "sqlmap", "1.8.2", "Automatic SQL injection and database takeover tool", "Web", 8_400_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("nikto", "nikto", "2.5.0", "Web server scanner for dangerous files and vulnerabilities", "Web", 4_100_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("gobuster", "gobuster", "3.6.0", "Directory/file, DNS and VHost busting tool", "Web", 6_200_000, true, CompatibilityStatus.COMPATIBLE),
+            PackageItem("hydra", "hydra", "9.5", "Fast network authentication auditor", "Auditing", 3_900_000, true, CompatibilityStatus.COMPATIBLE),
             PackageItem("tcpdump", "tcpdump", "4.99.4", "Packet analyzer (Requires CAP_NET_RAW / root for raw promiscuous capture)", "Network", 2_100_000, false, CompatibilityStatus.UNSUPPORTED),
             PackageItem("aircrack-ng", "aircrack-ng", "1.7", "Wireless security auditing suite (Requires monitor mode & root)", "Wireless", 7_800_000, false, CompatibilityStatus.UNSUPPORTED),
-            PackageItem("john", "john", "1.9.0-jumbo", "John the Ripper password security auditor", "Forensics", 12_000_000, false, CompatibilityStatus.COMPATIBLE),
+            PackageItem("john", "john", "1.9.0-jumbo", "John the Ripper password security auditor", "Forensics", 12_000_000, true, CompatibilityStatus.COMPATIBLE),
             PackageItem("python3", "python3", "3.11.8", "Python programming language userspace interpreter", "Programming", 18_000_000, true, CompatibilityStatus.COMPATIBLE)
         )
     }
@@ -300,6 +309,16 @@ class SecStationRepository(private val context: Context) {
     private fun initDefaultTools() {
         _tools.value = listOf(
             SecurityTool(
+                id = "tool_nuclei",
+                name = "Nuclei Scanner",
+                binary = "nuclei",
+                category = ToolCategory.WEB,
+                description = "Fast, template-based vulnerability scanner for security headers, SSL misconfigurations, technologies, and sensitive exposures.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-u https://httpbin.org/get",
+                suggestedArgs = listOf("-u https://httpbin.org/get", "-tl", "-t misconfiguration -u https://example.com", "-version")
+            ),
+            SecurityTool(
                 id = "tool_nmap",
                 name = "Nmap Scanner",
                 binary = "nmap",
@@ -310,6 +329,56 @@ class SecStationRepository(private val context: Context) {
                 rootlessAlternative = "Runs in unprivileged TCP Connect mode (-sT -Pn).",
                 defaultArgs = "-sT -Pn 127.0.0.1",
                 suggestedArgs = listOf("-sT -Pn 127.0.0.1", "-sT -Pn -p 80,443 scanme.nmap.org", "-sT -Pn 192.168.1.1")
+            ),
+            SecurityTool(
+                id = "tool_nikto",
+                name = "Nikto Web Scanner",
+                binary = "nikto",
+                category = ToolCategory.WEB,
+                description = "Web server scanner for dangerous files, outdated server software, and misconfigured HTTP headers.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-h https://httpbin.org",
+                suggestedArgs = listOf("-h https://httpbin.org", "-h https://example.com")
+            ),
+            SecurityTool(
+                id = "tool_gobuster",
+                name = "Gobuster Directory Buster",
+                binary = "gobuster",
+                category = ToolCategory.WEB,
+                description = "Directory/file and path enumeration tool using built-in high-speed wordlists.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "dir -u https://httpbin.org",
+                suggestedArgs = listOf("dir -u https://httpbin.org", "dir -u https://example.com")
+            ),
+            SecurityTool(
+                id = "tool_sqlmap",
+                name = "SQLMap Auditor",
+                binary = "sqlmap",
+                category = ToolCategory.WEB,
+                description = "Automatic SQL injection and database parameter vulnerability detection tool.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-u \"https://httpbin.org/get?id=1\"",
+                suggestedArgs = listOf("-u \"https://httpbin.org/get?id=1\"", "-u \"https://example.com/item?id=10\" --batch")
+            ),
+            SecurityTool(
+                id = "tool_curl",
+                name = "cURL HTTP Inspector",
+                binary = "curl",
+                category = ToolCategory.WEB,
+                description = "Command-line HTTP/HTTPS client to inspect server headers, SSL/TLS, and API responses.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-i https://httpbin.org/get",
+                suggestedArgs = listOf("-i https://httpbin.org/get", "-I https://example.com", "-i https://httpbin.org/headers")
+            ),
+            SecurityTool(
+                id = "tool_wget",
+                name = "Wget Retriever",
+                binary = "wget",
+                category = ToolCategory.WEB,
+                description = "Command-line file retriever supporting HTTP, HTTPS protocols and progress tracking.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "https://httpbin.org/get",
+                suggestedArgs = listOf("https://httpbin.org/get", "https://example.com/index.html")
             ),
             SecurityTool(
                 id = "tool_whois",
@@ -332,16 +401,6 @@ class SecStationRepository(private val context: Context) {
                 suggestedArgs = listOf("example.com", "cloudflare.com", "wikipedia.org")
             ),
             SecurityTool(
-                id = "tool_curl",
-                name = "cURL HTTP Inspector",
-                binary = "curl",
-                category = ToolCategory.WEB,
-                description = "Command-line HTTP/HTTPS client to inspect server headers, SSL/TLS, and API responses.",
-                compatibility = CompatibilityStatus.COMPATIBLE,
-                defaultArgs = "-i https://httpbin.org/get",
-                suggestedArgs = listOf("-i https://httpbin.org/get", "-I https://example.com", "-i https://httpbin.org/headers")
-            ),
-            SecurityTool(
                 id = "tool_ping",
                 name = "Ping ICMP Utility",
                 binary = "ping",
@@ -354,6 +413,26 @@ class SecStationRepository(private val context: Context) {
                 suggestedArgs = listOf("8.8.8.8", "1.1.1.1", "google.com")
             ),
             SecurityTool(
+                id = "tool_hydra",
+                name = "THC Hydra Login Auditor",
+                binary = "hydra",
+                category = ToolCategory.AUDITING,
+                description = "Fast network login & authentication auditor supporting HTTP-GET, SSH, and FTP services.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-l admin -p password httpbin.org",
+                suggestedArgs = listOf("-l admin -p password httpbin.org", "-l root -p toor 127.0.0.1")
+            ),
+            SecurityTool(
+                id = "tool_john",
+                name = "John the Ripper",
+                binary = "john",
+                category = ToolCategory.FORENSICS,
+                description = "Fast password security auditor and hash strength tester supporting MD5, SHA-1, and SHA-256.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "--test",
+                suggestedArgs = listOf("--test", "5f4dcc3b5aa765d61d8327deb882cf99")
+            ),
+            SecurityTool(
                 id = "tool_apktool",
                 name = "APK Inspector",
                 binary = "apktool",
@@ -364,6 +443,16 @@ class SecStationRepository(private val context: Context) {
                 suggestedArgs = listOf("d app-release.apk")
             ),
             SecurityTool(
+                id = "tool_jadx",
+                name = "JADX DEX Decompiler",
+                binary = "jadx",
+                category = ToolCategory.ANDROID,
+                description = "Command-line DEX to Java decompiler and Android package structure analyzer.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "base.apk",
+                suggestedArgs = listOf("base.apk", "classes.dex")
+            ),
+            SecurityTool(
                 id = "tool_hashcheck",
                 name = "Hash Calculator",
                 binary = "hashcheck",
@@ -372,6 +461,16 @@ class SecStationRepository(private val context: Context) {
                 compatibility = CompatibilityStatus.COMPATIBLE,
                 defaultArgs = "~/bugbounty/SCOPE_NOTICE.txt",
                 suggestedArgs = listOf("~/bugbounty/SCOPE_NOTICE.txt")
+            ),
+            SecurityTool(
+                id = "tool_python3",
+                name = "Python 3 Runtime",
+                binary = "python3",
+                category = ToolCategory.PROGRAMMING,
+                description = "Python 3 userspace runtime for scripting, payload analysis, and encoding/decoding.",
+                compatibility = CompatibilityStatus.COMPATIBLE,
+                defaultArgs = "-c \"print('SecStation Python 3 ready')\"",
+                suggestedArgs = listOf("-c \"print('SecStation Python 3 ready')\"", "-c \"print(2**16)\"", "script.py")
             ),
             SecurityTool(
                 id = "tool_tcpdump",

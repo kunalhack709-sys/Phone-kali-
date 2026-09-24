@@ -308,6 +308,20 @@ private fun ToolCardItem(
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (tool.binary == "nuclei") {
+                    OutlinedButton(
+                        onClick = { onLaunchInTerminal(customArgs) },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = KaliSecondary),
+                        modifier = Modifier.testTag("nuclei_quick_scan_btn")
+                    ) {
+                        Icon(Icons.Default.Bolt, "Quick Scan", modifier = Modifier.size(14.dp), tint = KaliSecondary)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Audit Scan", fontSize = 12.sp)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+
                 if (tool.binary == "apktool") {
                     OutlinedButton(
                         onClick = {

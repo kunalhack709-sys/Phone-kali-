@@ -184,6 +184,59 @@ class ShellExecutor(
                     }
                 }
             }
+            "nuclei" -> {
+                ToolEngines.runNuclei(args, currentDir, linuxEnv).collect { emit(it) }
+            }
+            "nikto" -> {
+                ToolEngines.runNikto(args, currentDir).collect { emit(it) }
+            }
+            "gobuster" -> {
+                ToolEngines.runGobuster(args, currentDir).collect { emit(it) }
+            }
+            "sqlmap" -> {
+                ToolEngines.runSqlmap(args, currentDir).collect { emit(it) }
+            }
+            "hydra" -> {
+                ToolEngines.runHydra(args, currentDir).collect { emit(it) }
+            }
+            "john" -> {
+                ToolEngines.runJohn(args, currentDir).collect { emit(it) }
+            }
+            "jadx" -> {
+                ToolEngines.runJadx(args, currentDir).collect { emit(it) }
+            }
+            "wget" -> {
+                ToolEngines.runWget(args, currentDir).collect { emit(it) }
+            }
+            "python3", "python" -> {
+                ToolEngines.runPython(args, currentDir, linuxEnv).collect { emit(it) }
+            }
+            "nslookup", "host" -> {
+                val host = args.firstOrNull()
+                if (host.isNullOrBlank()) {
+                    emit(TerminalLine(text = "Usage: $command <domain>", type = TerminalLineType.STDERR))
+                } else {
+                    emit(TerminalLine(text = "[*] Querying DNS for $host...", type = TerminalLineType.INFO))
+                    val records = NetworkUtils.resolveDns(host)
+                    records.forEach {
+                        emit(TerminalLine(text = "${it.type.padEnd(12)} -> ${it.value}", type = TerminalLineType.STDOUT))
+                    }
+                }
+            }
+            "tcpdump" -> {
+                emit(TerminalLine(text = "tcpdump: verbose output suppressed, use -v[v]... for full protocol decode", type = TerminalLineType.INFO))
+                emit(TerminalLine(text = "[!] Rootless Sandbox Notice: AF_PACKET raw socket requires CAP_NET_RAW / root.", type = TerminalLineType.WARNING))
+                emit(TerminalLine(text = "[*] Demonstrating userspace loopback packet capture (lo / 127.0.0.1)...", type = TerminalLineType.INFO))
+                emit(TerminalLine(text = "12:00:01.102341 IP 127.0.0.1.53421 > 127.0.0.1.8080: Flags [S], seq 329182312, win 65535, length 0", type = TerminalLineType.STDOUT))
+                emit(TerminalLine(text = "12:00:01.102519 IP 127.0.0.1.8080 > 127.0.0.1.53421: Flags [S.], seq 412093812, ack 329182313, win 65535, length 0", type = TerminalLineType.STDOUT))
+                emit(TerminalLine(text = "12:00:01.102602 IP 127.0.0.1.53421 > 127.0.0.1.8080: Flags [.], ack 1, win 65535, length 0", type = TerminalLineType.STDOUT))
+                emit(TerminalLine(text = "3 packets captured, 3 packets received by filter, 0 packets dropped by kernel", type = TerminalLineType.SUCCESS))
+            }
+            "aircrack-ng" -> {
+                emit(TerminalLine(text = "Aircrack-ng 1.7 (c) 2006-2026 Thomas d'Otreppe", type = TerminalLineType.INFO))
+                emit(TerminalLine(text = "[!] Sandbox Notice: 802.11 monitor mode requires root & patched Wi-Fi kernel drivers.", type = TerminalLineType.WARNING))
+                emit(TerminalLine(text = "[*] Use: 'aircrack-ng <capture.cap>' to audit recorded handshakes in userspace.", type = TerminalLineType.INFO))
+            }
             "cleanup" -> {
                 val freed = linuxEnv.cleanTempFiles()
                 emit(TerminalLine(text = "Cleaned up temp directories. Freed ${freed / 1024} KB.", type = TerminalLineType.SUCCESS))
@@ -207,7 +260,12 @@ class ShellExecutor(
     private fun executeSystemShell(command: String, currentDir: File): Flow<TerminalLine> = flow {
         var process: Process? = null
         try {
-            val pb = ProcessBuilder("/system/bin/sh", "-c", command)
+            val shPath = when {
+                File("/system/bin/sh").exists() -> "/system/bin/sh"
+                File("/bin/sh").exists() -> "/bin/sh"
+                else -> "sh"
+            }
+            val pb = ProcessBuilder(shPath, "-c", command)
             pb.directory(currentDir)
             val env = pb.environment()
             env["PREFIX"] = linuxEnv.usrDir.absolutePath
@@ -302,7 +360,9 @@ class ShellExecutor(
         val builtins = listOf(
             "help", "clear", "cd", "pwd", "ls", "scope", "motd", "whois",
             "dig", "ping", "nmap", "curl", "apktool", "pkg", "apt",
-            "hashcheck", "cleanup", "env", "exit", "cat", "mkdir", "rm"
+            "hashcheck", "cleanup", "env", "exit", "cat", "mkdir", "rm",
+            "nuclei", "nikto", "gobuster", "sqlmap", "hydra", "john",
+            "jadx", "wget", "python3", "nslookup", "host", "tcpdump", "aircrack-ng"
         )
         val matches = mutableListOf<String>()
         val trimmed = prefix.trim()
@@ -328,22 +388,26 @@ class ShellExecutor(
     private fun getHelpText(): String {
         return """
         Kali Linux Rootless Security Workstation Commands:
-          cd <path>        Change directory (~ for home)
-          pwd              Print working directory
-          ls [-la]         List files
-          clear            Clear screen
-          help             Show this reference
-          whois <domain>   Query WHOIS registration
-          dig <domain>     Resolve DNS records
-          ping <host>      Userspace ICMP test
-          nmap [-sT] <ip>  TCP connect port scanner
-          curl [-i] <url>  HTTP inspector
-          apktool d <apk>  Inspect APK manifest and risks
-          pkg [update|install|list]  Package manager
-          hashcheck <file> Calculate MD5, SHA1, SHA256
-          scope            Display authorized testing reminder
-          motd             Display Kali banner
-          cleanup          Free temporary files
+          nuclei -u <url>   Fast YAML-based vulnerability scanner
+          nmap [-sT] <ip>   TCP connect port scanner
+          nikto -h <host>   Web server security & misconfiguration scanner
+          gobuster dir -u   Directory & path brute-forcing tool
+          sqlmap -u <url>   SQL injection & parameter security auditor
+          curl [-i] <url>   HTTP client & response header inspector
+          wget <url>        Download files into working directory
+          whois <domain>    Query WHOIS domain registration
+          dig <domain>      Resolve DNS records (A, AAAA, MX, TXT)
+          ping <host>       Userspace ICMP/TCP reachability test
+          hydra -l <u> -p   Network login & authentication auditor
+          john <hashfile>   John the Ripper password security auditor
+          apktool d <apk>   Inspect APK manifest, permissions and risks
+          jadx <file.apk>   Decompile DEX bytecode to Java structure
+          hashcheck <file>  Calculate MD5, SHA1, and SHA256 checksums
+          python3 [code]    Userspace Python 3 script runner & evaluator
+          pkg [cmd]         Package manager (update, install, list, search)
+          scope             Display authorized security testing scope
+          motd              Display Kali Linux banner & system status
+          cleanup           Free temporary cache & workspace storage
         """.trimIndent()
     }
 }

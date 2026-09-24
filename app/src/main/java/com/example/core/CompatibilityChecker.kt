@@ -72,6 +72,30 @@ object CompatibilityChecker {
                 rootlessAlternative = "Traceroute using TCP/UDP high-port probing.",
                 recommendedCommand = "traceroute "
             )
+            "nuclei" -> ToolCapabilityReport(
+                toolName = "Nuclei Vulnerability Scanner",
+                status = CompatibilityStatus.COMPATIBLE,
+                title = "Fully Compatible (YAML DSL Engine)",
+                technicalReason = "Executes template matching against HTTP headers, status codes, SSL handshakes, and response bodies entirely in unprivileged Android userspace.",
+                rootlessAlternative = "Runs full template checks without elevated permissions.",
+                recommendedCommand = "nuclei -u https://example.com"
+            )
+            "hydra" -> ToolCapabilityReport(
+                toolName = "THC Hydra Network Auditor",
+                status = CompatibilityStatus.COMPATIBLE,
+                title = "Application Layer Auth Auditor",
+                technicalReason = "Uses standard TCP socket connections to test authentication services. Rate-limited in unprivileged userspace to prevent socket exhaustion.",
+                rootlessAlternative = "Unprivileged TCP authentication probing.",
+                recommendedCommand = "hydra -l admin -p secret "
+            )
+            "john", "john the ripper" -> ToolCapabilityReport(
+                toolName = "John the Ripper Password Auditor",
+                status = CompatibilityStatus.COMPATIBLE,
+                title = "Userspace Crypto Auditor",
+                technicalReason = "Performs CPU-based cryptographic hashing and dictionary matching purely in userspace memory.",
+                rootlessAlternative = "Direct local multi-threaded CPU hashing.",
+                recommendedCommand = "john --test"
+            )
             "apktool", "jadx" -> ToolCapabilityReport(
                 toolName = "APK Reverse Engineering Tools",
                 status = CompatibilityStatus.COMPATIBLE,
