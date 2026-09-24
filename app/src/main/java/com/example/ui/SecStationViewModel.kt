@@ -149,8 +149,13 @@ class SecStationViewModel(application: Application) : AndroidViewModel(applicati
         val cmd = (command ?: _commandInput.value).trim()
         if (cmd.isEmpty()) return
 
-        val activeId = activeSessionId.value
-        val session = sessions.value.firstOrNull { it.id == activeId } ?: return
+        var activeId = activeSessionId.value
+        var session = sessions.value.firstOrNull { it.id == activeId }
+        if (session == null) {
+            repository.initInitialSession()
+            activeId = activeSessionId.value
+            session = sessions.value.firstOrNull { it.id == activeId } ?: return
+        }
 
         _commandInput.value = ""
         _historyPosition.value = -1
@@ -168,6 +173,7 @@ class SecStationViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
 
+        activeJob?.cancel()
         activeJob = viewModelScope.launch {
             try {
                 repository.shellExecutor.execute(

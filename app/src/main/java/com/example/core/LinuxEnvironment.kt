@@ -13,7 +13,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
-class LinuxEnvironment(private val context: Context) {
+class LinuxEnvironment(val context: Context) {
 
     val rootDir: File get() = context.filesDir
     val usrDir: File get() = File(rootDir, "usr")
@@ -290,6 +290,57 @@ class LinuxEnvironment(private val context: Context) {
                 """.trimIndent()
             )
         }
+
+        // Deploy sample workspace files for tools testing
+        val sampleApk = File(homeDir, "base.apk")
+        if (!sampleApk.exists()) {
+            val appApk = File(context.applicationInfo.sourceDir)
+            if (appApk.exists() && appApk.canRead()) {
+                try {
+                    appApk.copyTo(sampleApk, overwrite = true)
+                } catch (_: Exception) {
+                    createMinimalApk(sampleApk)
+                }
+            } else {
+                createMinimalApk(sampleApk)
+            }
+        }
+
+        val sampleHash = File(homeDir, "hash.txt")
+        if (!sampleHash.exists()) {
+            sampleHash.writeText("5f4dcc3b5aa765d61d8327deb882cf99\n")
+        }
+
+        val samplePy = File(homeDir, "test_script.py")
+        if (!samplePy.exists()) {
+            samplePy.writeText(
+                """
+                # SecStation Python Verification Script
+                import math
+                print("SecStation Python 3 runtime active.")
+                print(f"Mathematical evaluation: 2^16 = {2**16}")
+                print(f"Pi approximation = {math.pi:.4f}")
+                """.trimIndent()
+            )
+        }
+    }
+
+    private fun createMinimalApk(dest: File) {
+        try {
+            java.util.zip.ZipOutputStream(java.io.FileOutputStream(dest)).use { zos ->
+                zos.putNextEntry(java.util.zip.ZipEntry("AndroidManifest.xml"))
+                zos.write("<?xml version=\"1.0\" encoding=\"utf-8\"?><manifest xmlns:android=\"http://schemas.android.com/apk/res/android\" package=\"com.secstation.targetapp\"><application android:debuggable=\"true\" android:usesCleartextTraffic=\"true\"><activity android:name=\".MainActivity\" android:exported=\"true\"/></application></manifest>".toByteArray())
+                zos.closeEntry()
+
+                zos.putNextEntry(java.util.zip.ZipEntry("classes.dex"))
+                zos.write("dex\n035\u0000SecStationSampleDexPayload123456789".toByteArray())
+                zos.closeEntry()
+
+                zos.putNextEntry(java.util.zip.ZipEntry("META-INF/CERT.RSA"))
+                zos.write("SecStationSelfSignedSignatureHeader123".toByteArray())
+                zos.closeEntry()
+            }
+        } catch (_: Exception) {}
     }
 
     private fun deployBuiltinScripts() {

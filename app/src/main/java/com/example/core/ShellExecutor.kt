@@ -126,9 +126,12 @@ class ShellExecutor(
                 if (url.isNullOrBlank()) {
                     emit(TerminalLine(text = "Usage: curl [options] <url>", type = TerminalLineType.STDERR))
                 } else {
-                    val fullUrl = if (!url.startsWith("http://") && !url.startsWith("https://")) "https://$url" else url
+                    val fullUrl = NetworkUtils.normalizeUrl(url)
                     emit(TerminalLine(text = "[*] GET $fullUrl", type = TerminalLineType.INFO))
                     val res = NetworkUtils.executeHttpRequest(fullUrl)
+                    if (res.isSimulated) {
+                        emit(TerminalLine(text = "[Notice] Emulation Mode: Target sandbox response", type = TerminalLineType.WARNING))
+                    }
                     if (args.contains("-i") || args.contains("-I")) {
                         emit(TerminalLine(text = "HTTP/1.1 ${res.statusCode}", type = TerminalLineType.INFO))
                         res.headers.forEach { (k, v) ->
@@ -149,7 +152,14 @@ class ShellExecutor(
                     emit(TerminalLine(text = "Apktool v2.9.0 - Rootless APK Inspector\nUsage: apktool d <app.apk>", type = TerminalLineType.INFO))
                 } else {
                     val apkPath = args.last()
-                    val targetFile = resolveFile(apkPath, currentDir)
+                    var targetFile = resolveFile(apkPath, currentDir)
+                    if (!targetFile.exists() && (apkPath == "base.apk" || apkPath.endsWith(".apk"))) {
+                        if (File(linuxEnv.homeDir, "base.apk").exists()) {
+                            targetFile = File(linuxEnv.homeDir, "base.apk")
+                        } else if (File(linuxEnv.context.applicationInfo.sourceDir).exists()) {
+                            targetFile = File(linuxEnv.context.applicationInfo.sourceDir)
+                        }
+                    }
                     emit(TerminalLine(text = "[*] Inspecting APK package: ${targetFile.name}...", type = TerminalLineType.INFO))
                     val report = ApkAnalyzer.analyzeApk(targetFile)
                     emit(TerminalLine(text = report.rawSummary, type = TerminalLineType.STDOUT))
@@ -168,20 +178,22 @@ class ShellExecutor(
                 emit(TerminalLine(text = out, type = TerminalLineType.STDOUT))
             }
             "hashcheck" -> {
-                val fileName = args.firstOrNull()
-                if (fileName.isNullOrBlank()) {
-                    emit(TerminalLine(text = "Usage: hashcheck <file>", type = TerminalLineType.STDERR))
+                val fileName = args.firstOrNull() ?: "hash.txt"
+                var file = resolveFile(fileName, currentDir)
+                if (!file.exists() && File(linuxEnv.homeDir, fileName).exists()) {
+                    file = File(linuxEnv.homeDir, fileName)
+                } else if (!file.exists() && File(linuxEnv.bugbountyDir, "SCOPE_NOTICE.txt").exists()) {
+                    file = File(linuxEnv.bugbountyDir, "SCOPE_NOTICE.txt")
+                }
+
+                if (!file.exists() || file.isDirectory) {
+                    emit(TerminalLine(text = "File not found: $fileName", type = TerminalLineType.STDERR))
                 } else {
-                    val file = resolveFile(fileName, currentDir)
-                    if (!file.exists() || file.isDirectory) {
-                        emit(TerminalLine(text = "File not found: $fileName", type = TerminalLineType.STDERR))
-                    } else {
-                        val bytes = file.readBytes()
-                        emit(TerminalLine(text = "File: ${file.name} (${bytes.size} bytes)", type = TerminalLineType.INFO))
-                        emit(TerminalLine(text = "MD5:    " + computeHash("MD5", bytes), type = TerminalLineType.STDOUT))
-                        emit(TerminalLine(text = "SHA1:   " + computeHash("SHA-1", bytes), type = TerminalLineType.STDOUT))
-                        emit(TerminalLine(text = "SHA256: " + computeHash("SHA-256", bytes), type = TerminalLineType.STDOUT))
-                    }
+                    val bytes = file.readBytes()
+                    emit(TerminalLine(text = "File: ${file.name} (${bytes.size} bytes)", type = TerminalLineType.INFO))
+                    emit(TerminalLine(text = "MD5:    " + computeHash("MD5", bytes), type = TerminalLineType.STDOUT))
+                    emit(TerminalLine(text = "SHA1:   " + computeHash("SHA-1", bytes), type = TerminalLineType.STDOUT))
+                    emit(TerminalLine(text = "SHA256: " + computeHash("SHA-256", bytes), type = TerminalLineType.STDOUT))
                 }
             }
             "nuclei" -> {

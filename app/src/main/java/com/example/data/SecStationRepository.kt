@@ -68,6 +68,7 @@ class SecStationRepository(private val context: Context) {
         initDefaultPackages()
         initDefaultTools()
         initDefaultWorkspaces()
+        initInitialSession()
         logDiagnostic("SecStation Repository initialized. ABI: ${linuxEnv.detectedArch}")
     }
 
@@ -315,8 +316,8 @@ class SecStationRepository(private val context: Context) {
                 category = ToolCategory.WEB,
                 description = "Fast, template-based vulnerability scanner for security headers, SSL misconfigurations, technologies, and sensitive exposures.",
                 compatibility = CompatibilityStatus.COMPATIBLE,
-                defaultArgs = "-u https://httpbin.org/get",
-                suggestedArgs = listOf("-u https://httpbin.org/get", "-tl", "-t misconfiguration -u https://example.com", "-version")
+                defaultArgs = "-u https://example.com",
+                suggestedArgs = listOf("-u https://example.com", "-tl", "-u 127.0.0.1:8080", "-version")
             ),
             SecurityTool(
                 id = "tool_nmap",
@@ -337,8 +338,8 @@ class SecStationRepository(private val context: Context) {
                 category = ToolCategory.WEB,
                 description = "Web server scanner for dangerous files, outdated server software, and misconfigured HTTP headers.",
                 compatibility = CompatibilityStatus.COMPATIBLE,
-                defaultArgs = "-h https://httpbin.org",
-                suggestedArgs = listOf("-h https://httpbin.org", "-h https://example.com")
+                defaultArgs = "-h https://example.com",
+                suggestedArgs = listOf("-h https://example.com", "-h http://127.0.0.1:8080")
             ),
             SecurityTool(
                 id = "tool_gobuster",
@@ -347,8 +348,8 @@ class SecStationRepository(private val context: Context) {
                 category = ToolCategory.WEB,
                 description = "Directory/file and path enumeration tool using built-in high-speed wordlists.",
                 compatibility = CompatibilityStatus.COMPATIBLE,
-                defaultArgs = "dir -u https://httpbin.org",
-                suggestedArgs = listOf("dir -u https://httpbin.org", "dir -u https://example.com")
+                defaultArgs = "dir -u https://example.com",
+                suggestedArgs = listOf("dir -u https://example.com", "dir -u http://127.0.0.1:8080")
             ),
             SecurityTool(
                 id = "tool_sqlmap",
@@ -357,8 +358,8 @@ class SecStationRepository(private val context: Context) {
                 category = ToolCategory.WEB,
                 description = "Automatic SQL injection and database parameter vulnerability detection tool.",
                 compatibility = CompatibilityStatus.COMPATIBLE,
-                defaultArgs = "-u \"https://httpbin.org/get?id=1\"",
-                suggestedArgs = listOf("-u \"https://httpbin.org/get?id=1\"", "-u \"https://example.com/item?id=10\" --batch")
+                defaultArgs = "-u \"https://example.com/search?id=1\"",
+                suggestedArgs = listOf("-u \"https://example.com/search?id=1\"", "-u \"http://127.0.0.1:8080/item?id=10\" --batch")
             ),
             SecurityTool(
                 id = "tool_curl",
@@ -367,8 +368,8 @@ class SecStationRepository(private val context: Context) {
                 category = ToolCategory.WEB,
                 description = "Command-line HTTP/HTTPS client to inspect server headers, SSL/TLS, and API responses.",
                 compatibility = CompatibilityStatus.COMPATIBLE,
-                defaultArgs = "-i https://httpbin.org/get",
-                suggestedArgs = listOf("-i https://httpbin.org/get", "-I https://example.com", "-i https://httpbin.org/headers")
+                defaultArgs = "-i https://example.com",
+                suggestedArgs = listOf("-i https://example.com", "-I https://example.com", "-i http://127.0.0.1:8080")
             ),
             SecurityTool(
                 id = "tool_wget",
@@ -377,8 +378,8 @@ class SecStationRepository(private val context: Context) {
                 category = ToolCategory.WEB,
                 description = "Command-line file retriever supporting HTTP, HTTPS protocols and progress tracking.",
                 compatibility = CompatibilityStatus.COMPATIBLE,
-                defaultArgs = "https://httpbin.org/get",
-                suggestedArgs = listOf("https://httpbin.org/get", "https://example.com/index.html")
+                defaultArgs = "https://example.com",
+                suggestedArgs = listOf("https://example.com", "http://127.0.0.1:8080/robots.txt")
             ),
             SecurityTool(
                 id = "tool_whois",
@@ -419,8 +420,8 @@ class SecStationRepository(private val context: Context) {
                 category = ToolCategory.AUDITING,
                 description = "Fast network login & authentication auditor supporting HTTP-GET, SSH, and FTP services.",
                 compatibility = CompatibilityStatus.COMPATIBLE,
-                defaultArgs = "-l admin -p password httpbin.org",
-                suggestedArgs = listOf("-l admin -p password httpbin.org", "-l root -p toor 127.0.0.1")
+                defaultArgs = "-l admin -p password example.com",
+                suggestedArgs = listOf("-l admin -p password example.com", "-l root -p toor 127.0.0.1")
             ),
             SecurityTool(
                 id = "tool_john",
